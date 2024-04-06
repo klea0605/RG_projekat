@@ -1,0 +1,11 @@
+Model Information:
+* title:	Water Bottle
+* source:	https://sketchfab.com/3d-models/water-bottle-fb5b8d06483049d2889d3238104561c6
+* author:	Requital (Azamkhon) (https://sketchfab.com/requital_0111)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Water Bottle" (https://sketchfab.com/3d-models/water-bottle-fb5b8d06483049d2889d3238104561c6) by Requital (Azamkhon) (https://sketchfab.com/requital_0111) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)

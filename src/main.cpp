@@ -27,8 +27,8 @@ void processInput(GLFWwindow *window);
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 // settings
-const unsigned int SCR_WIDTH = 800;
-const unsigned int SCR_HEIGHT = 600;
+const unsigned int SCR_WIDTH = 900;
+const unsigned int SCR_HEIGHT = 700;
 
 // camera
 
@@ -56,8 +56,31 @@ struct ProgramState {
     bool ImGuiEnabled = false;
     Camera camera;
     bool CameraMouseMovementUpdateEnabled = true;
-    glm::vec3 backpackPosition = glm::vec3(0.0f);
-    float backpackScale = 1.0f;
+
+    // Cart object
+    glm::vec3 cartPosition = glm::vec3(0.0f);
+    float cartScale = 3.0f;
+    float cartXRotationDeg = -90.0f; float cartZRotationDeg = -45.0f;
+//    diameters infered from scene.gltf -> accessors
+    float cartXDiameter = (1.096f + 0.045f) * cartScale; float cartYDiameter = 2 * 0.311f * cartScale; float cartZDiameter = (0.085f + 1.036) * cartScale;
+    // Lays chips object
+    glm::vec3 laysPosition = glm::vec3(cartPosition.x + cartXDiameter/2, cartPosition.y - cartYDiameter/2, cartPosition.z + cartZDiameter/2);
+    float laysScale = 0.025f; float laysRotationDeg = 0.0f;
+    // Aisle object
+    glm::vec3 aislePosition = glm::vec3(0.0f, -3.0f, -10.0f);
+    float aisleScale = 5.0f; float aisleRotationDeg = -90.0f;
+    // Floor
+    glm::vec3 floorPosition = glm::vec3(0.0f, -cartYDiameter-1.5f, 0.0f); // for some reason cart front wheels are missing
+    float floorXRotationDeg = -90.0f;
+    // Plastic Bottle
+    glm::vec3 bottlePosition = glm::vec3(-3.0f, -3.0f, 0.0f);
+    float bottleXRotationDeg = -90.0f;
+
+    // Glass Bottle
+    glm::vec3 bottle2Position = glm::vec3(5.0f, -3.0f, -3.0f);
+    float bottle2Scale = 0.5f;
+
+
     PointLight pointLight;
     ProgramState()
             : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
@@ -100,6 +123,7 @@ void ProgramState::LoadFromFile(std::string filename) {
 ProgramState *programState;
 
 void DrawImGui(ProgramState *programState);
+void renderModels(Shader &shader, vector<Model> &models);
 
 int main() {
     // glfw: initialize and configure
@@ -137,7 +161,7 @@ int main() {
     }
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-    stbi_set_flip_vertically_on_load(true);
+//    stbi_set_flip_vertically_on_load(true);
 
     programState = new ProgramState;
     programState->LoadFromFile("resources/program_state.txt");
@@ -158,30 +182,47 @@ int main() {
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
     // build and compile shaders
     // -------------------------
-    Shader ourShader("resources/shaders/2.model_lighting.vs", "resources/shaders/2.model_lighting.fs");
+    Shader ourShader("/Users/jovan/Fax/Treca_godina/RG/project_base/resources/shaders/2.model_lighting.vs", "/Users/jovan/Fax/Treca_godina/RG/project_base/resources/shaders/2.model_lighting.fs");
 
     // load models
     // -----------
-    Model ourModel("resources/objects/backpack/backpack.obj");
-    ourModel.SetShaderTextureNamePrefix("material.");
+    vector<Model> models;
+    Model cartModel(FileSystem::getPath("resources/objects/simple_shopping_cart/scene.gltf"));
+    Model laysModel(FileSystem::getPath("resources/objects/lays_classic__hd_textures__free_download/scene.gltf"));
+    Model aisleModel(FileSystem::getPath("resources/objects/supermarket_potato_chips_shelf_asset/scene.gltf"));
+    Model floorModel(FileSystem::getPath("resources/objects/checkered_tile_floor/scene.gltf"));
+    Model bottleModel(FileSystem::getPath("resources/objects/water_bottle/scene.gltf"));
+    Model bottle2Model(FileSystem::getPath("resources/objects/low_poly_bottle/scene.gltf"));
+    models.push_back(cartModel);
+    models.push_back(laysModel);
+    models.push_back(aisleModel);
+    models.push_back(floorModel);
+    models.push_back(bottleModel);
+    models.push_back(bottle2Model);
+
+    cartModel.SetShaderTextureNamePrefix("material.");
+    laysModel.SetShaderTextureNamePrefix("material.");
+    aisleModel.SetShaderTextureNamePrefix("material.");
 
     PointLight& pointLight = programState->pointLight;
     pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
-    pointLight.ambient = glm::vec3(0.1, 0.1, 0.1);
-    pointLight.diffuse = glm::vec3(0.6, 0.6, 0.6);
+    pointLight.ambient = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.diffuse = glm::vec3(1.0, 1.0, 1.0);
     pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
 
-    pointLight.constant = 1.0f;
-    pointLight.linear = 0.09f;
-    pointLight.quadratic = 0.032f;
+    pointLight.constant = 1.5f;
+    pointLight.linear = 0.0;
+    pointLight.quadratic = 0.0;
 
 
 
     // draw in wireframe
-    //glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+//    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     // render loop
     // -----------
@@ -204,7 +245,10 @@ int main() {
 
         // don't forget to enable shader before setting uniforms
         ourShader.use();
-        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+
+// Zakomentarisem ovo da mi se ne bi vrteli oni sinusi
+//        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
+        pointLight.position = glm::vec3(4.0 , 4.0f, 4.0 );
         ourShader.setVec3("pointLight.position", pointLight.position);
         ourShader.setVec3("pointLight.ambient", pointLight.ambient);
         ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
@@ -221,13 +265,12 @@ int main() {
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
 
-        // render the loaded model
-        glm::mat4 model = glm::mat4(1.0f);
-        model = glm::translate(model,
-                               programState->backpackPosition); // translate it down so it's at the center of the scene
-        model = glm::scale(model, glm::vec3(programState->backpackScale));    // it's a bit too big for our scene, so scale it down
-        ourShader.setMat4("model", model);
-        ourModel.Draw(ourShader);
+        //Face culling
+//        glEnable(GL_CULL_FACE);
+//        glCullFace(GL_BACK);
+
+        // render the loaded models
+        renderModels(ourShader, models);
 
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
@@ -250,6 +293,72 @@ int main() {
     glfwTerminate();
     return 0;
 }
+
+// renderModels implementation
+void renderModels(Shader &shader, vector<Model> &models) {
+
+    glm::mat4 model = glm::mat4(1.0f);
+
+    // Shopping cart model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model,
+                           programState->cartPosition); // translate it down so it's at the center of the scene
+    model = glm::scale(model, glm::vec3(
+            programState->cartScale));    // it's a bit too big for our scene, so scale it dow
+    model = glm::rotate(model, glm::radians(programState->cartXRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
+    model = glm::rotate(model, glm::radians(programState->cartZRotationDeg), glm::vec3(0.0f, 0.0f, 1.0f));
+    shader.setMat4("model", model);
+    models[0].Draw(shader);
+
+    // Lays chips model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model,
+                           programState->laysPosition);
+    model = glm::scale(model, glm::vec3(
+            programState->laysScale));
+    model = glm::rotate(model, glm::radians(programState->laysRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    models[1].Draw(shader);
+
+    // Aisle model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model,
+                           programState->aislePosition); // translate it down so it's at the center of the scene
+    model = glm::scale(model, glm::vec3(
+            programState->aisleScale));    // it's a bit too big for our scene, so scale it dow
+    model = glm::rotate(model, glm::radians(programState->aisleRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    models[2].Draw(shader);
+
+    // Floor model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model,
+                           programState->floorPosition); // translate it down so it's at the center of the scene
+//    model = glm::scale(model, glm::vec3(
+//            programState->floorScale));    // it's a bit too big for our scene, so scale it dow
+    model = glm::rotate(model, glm::radians(programState->floorXRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    models[3].Draw(shader);
+
+    // Plastic bottle model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model,
+                           programState->bottlePosition);
+    model = glm::rotate(model, glm::radians(programState->bottleXRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    models[4].Draw(shader);
+
+    // Glass bottle model
+    model = glm::mat4(1.0f);
+    model = glm::translate(model,
+                           programState->bottle2Position);
+    model = glm::scale(model, glm::vec3(
+            programState->bottle2Scale));
+    model = glm::rotate(model, glm::radians(programState->bottleXRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
+    shader.setMat4("model", model);
+    models[5].Draw(shader);
+}
+
 
 // process all input: query GLFW whether relevant keys are pressed/released this frame and react accordingly
 // ---------------------------------------------------------------------------------------------------------
@@ -312,8 +421,8 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("Hello text");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
+//        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
+//        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
 
         ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
@@ -336,7 +445,7 @@ void DrawImGui(ProgramState *programState) {
 }
 
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods) {
-    if (key == GLFW_KEY_F1 && action == GLFW_PRESS) {
+    if (key == GLFW_KEY_G && action == GLFW_PRESS) {
         programState->ImGuiEnabled = !programState->ImGuiEnabled;
         if (programState->ImGuiEnabled) {
             programState->CameraMouseMovementUpdateEnabled = false;
@@ -346,3 +455,5 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
         }
     }
 }
+// ----------------------------------------------------------------------
+

@@ -13,14 +13,15 @@ endfunction()
 set(CMAKE_POLICY_DEFAULT_CMP0012 NEW)
 set(CMAKE_CXX_STANDARD 14)
 
-list(APPEND CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -O3")
+list(APPEND CMAKE_CXX_FLAGS "-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter -O0 -g")
 list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 
 file(GLOB SOURCES "src/*.cpp" "src/*.c" src/main.cpp)
 file(GLOB HEADERS "include/*.h" "include/*.hpp")
 
 find_package(OpenGL REQUIRED)
-find_package(GLFW3 REQUIRED)
+#find_package(GLFW3 REQUIRED)
+find_package(GLFW3 REQUIRED PATHS /usr/local/Cellar/glfw/3.3.4/lib/cmake/glfw3)
 find_package(ASSIMP REQUIRED)
 
 add_subdirectory(libs/glad)
@@ -36,6 +37,11 @@ set_source_files_properties(libs/stb_image.cpp include/stb_image.h
 
 set(LIBS glfw glad OpenGL::GL X11 Xrandr Xinerama Xi Xxf86vm Xcursor dl pthread freetype ${ASSIMP_LIBRARIES} STB_IMAGE imgui)
 
+set(X11_LIBRARY_PATH "/usr/local/opt/libx11/lib")
+set(XRANDR_LIBRARY_PATH "/opt/X11/lib")
+include_directories(${X11_LIBRARY_PATH} ${XRANDR_LIBRARY_PATH})
+link_directories(${X11_LIBRARY_PATH} ${XRANDR_LIBRARY_PATH})
+
 
 configure_file(configuration/root_directory.h.in configuration/root_directory.h)
 include_directories(${CMAKE_BINARY_DIR}/configuration)
@@ -43,7 +49,8 @@ include_directories(${CMAKE_BINARY_DIR}/configuration)
 
 include_directories(include/)
 add_executable(${PROJECT_NAME}
-        ${SOURCES})
+        ${SOURCES}
+        )
 
 target_link_libraries(${PROJECT_NAME} ${LIBS})
 

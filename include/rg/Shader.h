@@ -19,12 +19,17 @@ public:
     Shader(std::string vertexShaderPath, std::string fragmentShaderPath) {
         appendShaderFolderIfNotPresent(vertexShaderPath);
         appendShaderFolderIfNotPresent(fragmentShaderPath);
+
+
+
         // build and compile our shader program
         // ------------------------------------
         // vertex shader
         std::string vsString = readFileContents(vertexShaderPath);
         ASSERT(!vsString.empty(), "Vertex shader source is empty!");
         const char* vertexShaderSource = vsString.c_str();
+
+
         int vertexShader = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
         glCompileShader(vertexShader);
@@ -66,6 +71,8 @@ public:
         glDeleteShader(fragmentShader);
         m_Id = shaderProgram;
     }
+
+
 
     // activate the shader
     // ------------------------------------------------------------------------

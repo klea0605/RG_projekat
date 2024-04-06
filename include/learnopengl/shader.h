@@ -20,7 +20,7 @@ public:
         std::string vertexPathString(vertexPath);
         std::string fragmentPathString(fragmentPath);
 
-        vertexPath = vertexPathString.c_str();
+        vertexPath = vertexPathString.c_str(); // zasto ovo radimo uopste ?
         fragmentPath= fragmentPathString.c_str();
         // 1. retrieve the vertex/fragment source code from filePath
         std::string vertexCode;
@@ -47,7 +47,8 @@ public:
             fShaderFile.close();
             // convert stream into string
             vertexCode = vShaderStream.str();
-            fragmentCode = fShaderStream.str();			
+            fragmentCode = fShaderStream.str();
+//            std::cout << vertexCode << " " << fragmentCode << std::endl;
             // if geometry shader path is present, also load a geometry shader
             if(geometryPath != nullptr)
             {

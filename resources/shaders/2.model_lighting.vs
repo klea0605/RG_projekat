@@ -17,4 +17,6 @@ void main()
     Normal = aNormal;
     TexCoords = aTexCoords;    
     gl_Position = projection * view * vec4(FragPos, 1.0);
+
+    // zasto nema out boja za fs ?
 }

@@ -1,0 +1,11 @@
+Model Information:
+* title:	Supermarket Potato Chips Shelf Asset
+* source:	https://sketchfab.com/3d-models/supermarket-potato-chips-shelf-asset-4e4ccc3074f0474bbfa23611c46a4029
+* author:	Rendevr (https://sketchfab.com/Rendevr)
+
+Model License:
+* license type:	CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
+* requirements:	Author must be credited. Commercial use is allowed.
+
+If you use this 3D model in your project be sure to copy paste this credit wherever you share it:
+This work is based on "Supermarket Potato Chips Shelf Asset" (https://sketchfab.com/3d-models/supermarket-potato-chips-shelf-asset-4e4ccc3074f0474bbfa23611c46a4029) by Rendevr (https://sketchfab.com/Rendevr) licensed under CC-BY-4.0 (http://creativecommons.org/licenses/by/4.0/)
