@@ -40,6 +40,10 @@ bool firstMouse = true;
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
+// Blinn-Phong
+int blinn_flag = 0;
+bool blinnKeyPressed = false;
+
 struct PointLight {
     glm::vec3 position;
     glm::vec3 ambient;
@@ -50,6 +54,9 @@ struct PointLight {
     float linear;
     float quadratic;
 };
+
+// Program state init
+//----------------------------------------------------------------------------------
 
 struct ProgramState {
     glm::vec3 clearColor = glm::vec3(0);
@@ -63,15 +70,25 @@ struct ProgramState {
     float cartXRotationDeg = -90.0f; float cartZRotationDeg = -45.0f;
 //    diameters infered from scene.gltf -> accessors
     float cartXDiameter = (1.096f + 0.045f) * cartScale; float cartYDiameter = 2 * 0.311f * cartScale; float cartZDiameter = (0.085f + 1.036) * cartScale;
+
     // Lays chips object
-    glm::vec3 laysPosition = glm::vec3(cartPosition.x + cartXDiameter/2, cartPosition.y - cartYDiameter/2, cartPosition.z + cartZDiameter/2);
-    float laysScale = 0.025f; float laysRotationDeg = 0.0f;
+    glm::vec3 laysStartPosition = glm::vec3(cartPosition.x + cartXDiameter/2, cartPosition.y - cartYDiameter/2, cartPosition.z + cartZDiameter/2);
+    float laysScale = 0.025f;
+    //instancing
+    unsigned int laysAmount = 4;
+    // ovo ce morati da bude niz za instancing
+    float laysRotationDeg = 0.0f;
+    // instancing
+    float laysInstancingOffset = 0.1f;
+
     // Aisle object
     glm::vec3 aislePosition = glm::vec3(0.0f, -3.0f, -10.0f);
     float aisleScale = 5.0f; float aisleRotationDeg = -90.0f;
+
     // Floor
     glm::vec3 floorPosition = glm::vec3(0.0f, -cartYDiameter-1.5f, 0.0f); // for some reason cart front wheels are missing
     float floorXRotationDeg = -90.0f;
+
     // Plastic Bottle
     glm::vec3 bottlePosition = glm::vec3(-3.0f, -3.0f, 0.0f);
     float bottleXRotationDeg = -90.0f;
@@ -119,6 +136,8 @@ void ProgramState::LoadFromFile(std::string filename) {
            >> camera.Front.z;
     }
 }
+// ----------------------------------------------------------------------------
+
 
 ProgramState *programState;
 
@@ -161,7 +180,7 @@ int main() {
     }
 
     // tell stb_image.h to flip loaded texture's on the y-axis (before loading model).
-//    stbi_set_flip_vertically_on_load(true);
+    stbi_set_flip_vertically_on_load(false);
 
     programState = new ProgramState;
     programState->LoadFromFile("resources/program_state.txt");
@@ -179,16 +198,23 @@ int main() {
     ImGui_ImplGlfw_InitForOpenGL(window, true);
     ImGui_ImplOpenGL3_Init("#version 330 core");
 
+
     // configure global opengl state
     // -----------------------------
     glEnable(GL_DEPTH_TEST);
+//    Blending
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+//    Face-culling
+    glEnable(GL_CULL_FACE);
+    glFrontFace(GL_CCW); // front face is counter clock wise
+    glCullFace(GL_BACK); // don't render back (important for rendering the floor)
+
     // build and compile shaders
     // -------------------------
-    Shader ourShader("/Users/jovan/Fax/Treca_godina/RG/project_base/resources/shaders/2.model_lighting.vs", "/Users/jovan/Fax/Treca_godina/RG/project_base/resources/shaders/2.model_lighting.fs");
-
+    Shader ourShader(FileSystem::getPath("resources/shaders/2.model_lighting.vs").c_str(), "/Users/jovan/Fax/Treca_godina/RG/RG_projekat/resources/shaders/2.model_lighting.fs");
+    Shader instanceShader("/Users/jovan/Fax/Treca_godina/RG/RG_projekat/resources/shaders/instancing.vs", "/Users/jovan/Fax/Treca_godina/RG/RG_projekat/resources/shaders/instancing.fs");
     // load models
     // -----------
     vector<Model> models;
@@ -208,21 +234,87 @@ int main() {
     cartModel.SetShaderTextureNamePrefix("material.");
     laysModel.SetShaderTextureNamePrefix("material.");
     aisleModel.SetShaderTextureNamePrefix("material.");
+//    -----------------------------------------------------------------------------------
+// Instancing
+// Code copied from: https://learnopengl.com/Advanced-OpenGL/Instancing -----------------
+
+    unsigned int amount = programState->laysAmount - 1;
+    glm::mat4 *modelMatrices = new glm::mat4[amount];
+    float radius = 1.0f;
+    float offset = 0.5f;
+
+    for (unsigned int i = 0; i < amount; i++)
+    {
+        glm::mat4 model = glm::mat4(1.0f);
+        // 1. translation: displace along circle with 'radius' in range [-offset, offset]
+        float angle = (float)i / (float)amount * 360.0f;
+        float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float x = programState->laysStartPosition.x * radius + displacement;
+//        int sign = (i % 2) ? -1 : 1;
+//        float x = programState->laysStartPosition.x + sign*i*offset;
+        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+        float y = displacement * 0.6f; // keep height of asteroid field smaller compared to width of x and z
+//        float y = programState->laysStartPosition.y;
+        displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
+//        float z = programState->laysStartPosition.z;
+        float z = programState->laysStartPosition.z * radius + displacement;
+        model = glm::translate(model, glm::vec3(x, y, z));
+
+        // scale
+        model = glm::scale(model, glm::vec3(programState->laysScale));
+
+        // 3. rotation: add random rotation around a (semi)randomly picked rotation axis vector
+        float rotAngle = static_cast<float>((rand() % 360));
+        model = glm::rotate(model, rotAngle, glm::vec3(0.4f, 0.6f, 0.8f));
+
+        // 4. now add to list of matrices
+        modelMatrices[i] = model;
+    }
+
+    // configure instanced array
+    // -------------------------
+    unsigned int buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, programState->laysAmount * sizeof(glm::mat4), &modelMatrices[0], GL_STATIC_DRAW);
+
+    for(unsigned int i = 0; i < laysModel.meshes.size(); i++)
+    {
+        unsigned int VAO = laysModel.meshes[i].VAO;
+        glBindVertexArray(VAO);
+        // vertex attributes
+        std::size_t vec4Size = sizeof(glm::vec4);
+        glEnableVertexAttribArray(3);
+        glVertexAttribPointer(3, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)0);
+        glEnableVertexAttribArray(4);
+        glVertexAttribPointer(4, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(1 * vec4Size));
+        glEnableVertexAttribArray(5);
+        glVertexAttribPointer(5, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(2 * vec4Size));
+        glEnableVertexAttribArray(6);
+        glVertexAttribPointer(6, 4, GL_FLOAT, GL_FALSE, 4 * vec4Size, (void*)(3 * vec4Size));
+
+        glVertexAttribDivisor(3, 1);
+        glVertexAttribDivisor(4, 1);
+        glVertexAttribDivisor(5, 1);
+        glVertexAttribDivisor(6, 1);
+
+        glBindVertexArray(0);
+    }
+// ----------------------------------------------------------
+
+//    Lights; TODO -> vise pointLights
+// ----------------------------------------------------------
 
     PointLight& pointLight = programState->pointLight;
-    pointLight.position = glm::vec3(4.0f, 4.0, 0.0);
     pointLight.ambient = glm::vec3(1.0, 1.0, 1.0);
     pointLight.diffuse = glm::vec3(1.0, 1.0, 1.0);
-    pointLight.specular = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.specular = glm::vec3(5.0, 3.0, 2.0);
 
-    pointLight.constant = 1.5f;
-    pointLight.linear = 0.0;
-    pointLight.quadratic = 0.0;
+    pointLight.constant = 1.3f;
+    pointLight.linear = 0.0f;
+    pointLight.quadratic = 0.0f;
 
 
-
-    // draw in wireframe
-//    glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     // render loop
     // -----------
@@ -246,9 +338,7 @@ int main() {
         // don't forget to enable shader before setting uniforms
         ourShader.use();
 
-// Zakomentarisem ovo da mi se ne bi vrteli oni sinusi
-//        pointLight.position = glm::vec3(4.0 * cos(currentFrame), 4.0f, 4.0 * sin(currentFrame));
-        pointLight.position = glm::vec3(4.0 , 4.0f, 4.0 );
+        pointLight.position = glm::vec3(programState->camera.Position.x - 0.2f, 0.0f, 5.0f);
         ourShader.setVec3("pointLight.position", pointLight.position);
         ourShader.setVec3("pointLight.ambient", pointLight.ambient);
         ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
@@ -258,6 +348,9 @@ int main() {
         ourShader.setFloat("pointLight.quadratic", pointLight.quadratic);
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
+        ourShader.setInt("blinn_flag", blinn_flag);
+        std::cout << (blinn_flag ? "Blinn-Phong" : "Phong") << std::endl;
+
         // view/projection transformations
         glm::mat4 projection = glm::perspective(glm::radians(programState->camera.Zoom),
                                                 (float) SCR_WIDTH / (float) SCR_HEIGHT, 0.1f, 100.0f);
@@ -265,16 +358,38 @@ int main() {
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
 
-        //Face culling
-//        glEnable(GL_CULL_FACE);
-//        glCullFace(GL_BACK);
-
         // render the loaded models
         renderModels(ourShader, models);
 
+        // render aisle without face-cull
+        glDisable(GL_CULL_FACE);
+        glm::mat4 model = glm::mat4(1.0f);
+        model = glm::translate(model,
+                               programState->aislePosition); // translate it down so it's at the center of the scene
+        model = glm::scale(model, glm::vec3(
+                programState->aisleScale));    // it's a bit too big for our scene, so scale it dow
+        model = glm::rotate(model, glm::radians(programState->aisleRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
+        ourShader.setMat4("model", model);
+        models[2].Draw(ourShader);
+
+        // Instancing
+        instanceShader.use();
+        instanceShader.setMat4("projection", projection);
+        instanceShader.setMat4("view", view);
+        instanceShader.setInt("texture_diffuse1", 0);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, laysModel.textures_loaded[0].id);
+        for(unsigned int i = 0; i < laysModel.meshes.size(); i++)
+        {
+            glBindVertexArray(laysModel.meshes[i].VAO);
+            glDrawElementsInstanced(
+                    GL_TRIANGLES, laysModel.meshes[i].indices.size(), GL_UNSIGNED_INT, 0, programState->laysAmount
+            );
+            glBindVertexArray(0);
+        }
+
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
-
 
 
         // glfw: swap buffers and poll IO events (keys pressed/released, mouse moved etc.)
@@ -313,22 +428,13 @@ void renderModels(Shader &shader, vector<Model> &models) {
     // Lays chips model
     model = glm::mat4(1.0f);
     model = glm::translate(model,
-                           programState->laysPosition);
+                           programState->laysStartPosition);
     model = glm::scale(model, glm::vec3(
             programState->laysScale));
     model = glm::rotate(model, glm::radians(programState->laysRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
     shader.setMat4("model", model);
     models[1].Draw(shader);
 
-    // Aisle model
-    model = glm::mat4(1.0f);
-    model = glm::translate(model,
-                           programState->aislePosition); // translate it down so it's at the center of the scene
-    model = glm::scale(model, glm::vec3(
-            programState->aisleScale));    // it's a bit too big for our scene, so scale it dow
-    model = glm::rotate(model, glm::radians(programState->aisleRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
-    shader.setMat4("model", model);
-    models[2].Draw(shader);
 
     // Floor model
     model = glm::mat4(1.0f);
@@ -374,6 +480,16 @@ void processInput(GLFWwindow *window) {
         programState->camera.ProcessKeyboard(LEFT, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
         programState->camera.ProcessKeyboard(RIGHT, deltaTime);
+
+    //Blinn-Phong
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_PRESS && !blinnKeyPressed){
+        blinn_flag = !blinn_flag;
+        blinnKeyPressed = true;
+    }
+    if (glfwGetKey(window, GLFW_KEY_B) == GLFW_RELEASE){
+        blinnKeyPressed = false;
+    }
+
 }
 
 // glfw: whenever the window size changed (by OS or user resize) this callback function executes
@@ -417,8 +533,8 @@ void DrawImGui(ProgramState *programState) {
 
     {
         static float f = 0.0f;
-        ImGui::Begin("Hello window");
-        ImGui::Text("Hello text");
+        ImGui::Begin("Settings");
+        ImGui::Text("Choose your chips");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
 //        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
