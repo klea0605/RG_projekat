@@ -24,6 +24,9 @@ void scroll_callback(GLFWwindow *window, double xoffset, double yoffset);
 
 void processInput(GLFWwindow *window);
 
+// For Blending
+unsigned int loadTexture(char const * path);
+
 void key_callback(GLFWwindow *window, int key, int scancode, int action, int mods);
 
 // settings
@@ -96,6 +99,15 @@ struct ProgramState {
     // Glass Bottle
     glm::vec3 bottle2Position = glm::vec3(5.0f, -3.0f, -3.0f);
     float bottle2Scale = 0.5f;
+
+    // Transparent windows positions
+    // --------------------------------
+    vector<glm::vec3> windows
+            {
+                    glm::vec3( 3.0f, 0.0f, 3.0f),
+                    glm::vec3( -7.0f, 0.0f, 3.0f)
+            };
+    float windowScale = 7.0f;
 
 
     PointLight pointLight;
@@ -205,6 +217,21 @@ int main() {
 //    Blending
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+// Code copied from https://learnopengl.com/code_viewer_gh.php?code=src/4.advanced_opengl/3.2.blending_sort/blending_sorted.cpp
+//----------------------------------------------------------------------------------------------------
+    float transparentVertices[] = {
+            // positions         // texture Coords (swapped y coordinates because texture is flipped upside down)
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            0.0f, -0.5f,  0.0f,  0.0f,  1.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+
+            0.0f,  0.5f,  0.0f,  0.0f,  0.0f,
+            1.0f, -0.5f,  0.0f,  1.0f,  1.0f,
+            1.0f,  0.5f,  0.0f,  1.0f,  0.0f
+    };
+
+//    loading texture
+    unsigned int transparentTexture = loadTexture(FileSystem::getPath("resources/textures/blending_transparent_window.png").c_str());
 
 //    Face-culling
     glEnable(GL_CULL_FACE);
@@ -213,8 +240,9 @@ int main() {
 
     // build and compile shaders
     // -------------------------
-    Shader ourShader(FileSystem::getPath("resources/shaders/2.model_lighting.vs").c_str(), "/Users/jovan/Fax/Treca_godina/RG/RG_projekat/resources/shaders/2.model_lighting.fs");
-    Shader instanceShader("/Users/jovan/Fax/Treca_godina/RG/RG_projekat/resources/shaders/instancing.vs", "/Users/jovan/Fax/Treca_godina/RG/RG_projekat/resources/shaders/instancing.fs");
+    Shader ourShader(FileSystem::getPath("resources/shaders/2.model_lighting.vs").c_str(), FileSystem::getPath("resources/shaders/2.model_lighting.fs").c_str());
+    Shader instanceShader(FileSystem::getPath("resources/shaders/instancing.vs").c_str(), FileSystem::getPath("resources/shaders/instancing.fs").c_str());
+    Shader blendingShader(FileSystem::getPath("resources/shaders/blending.vs").c_str(), FileSystem::getPath("resources/shaders/blending.fs").c_str());
     // load models
     // -----------
     vector<Model> models;
@@ -313,7 +341,21 @@ int main() {
     pointLight.constant = 1.3f;
     pointLight.linear = 0.0f;
     pointLight.quadratic = 0.0f;
+//--------------------------------------------------------------
 
+// Blending
+// buffer objects for window
+    unsigned int transparentVAO, transparentVBO;
+    glGenVertexArrays(1, &transparentVAO);
+    glGenBuffers(1, &transparentVBO);
+    glBindVertexArray(transparentVAO);
+    glBindBuffer(GL_ARRAY_BUFFER, transparentVBO);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(transparentVertices), transparentVertices, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0); // positions
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+    glEnableVertexAttribArray(1); // texCoords
+    glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+    glBindVertexArray(0); // ? zasto ovo ?
 
 
     // render loop
@@ -329,6 +371,15 @@ int main() {
         // -----
         processInput(window);
 
+        // sort the transparent windows before rendering
+        // ---------------------------------------------
+        std::map<float, glm::vec3> sorted;
+        for (unsigned int i = 0; i < programState->windows.size(); i++)
+        {
+            float distance = glm::length(programState->camera.Position - programState->windows[i]);
+            sorted[distance] = programState->windows[i];
+        }
+
 
         // render
         // ------
@@ -338,7 +389,7 @@ int main() {
         // don't forget to enable shader before setting uniforms
         ourShader.use();
 
-        pointLight.position = glm::vec3(programState->camera.Position.x - 0.2f, 0.0f, 5.0f);
+        pointLight.position = glm::vec3(programState->camera.Position.x - 0.02f, 0.0f, 5.0f);
         ourShader.setVec3("pointLight.position", pointLight.position);
         ourShader.setVec3("pointLight.ambient", pointLight.ambient);
         ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
@@ -358,7 +409,7 @@ int main() {
         ourShader.setMat4("projection", projection);
         ourShader.setMat4("view", view);
 
-        // render the loaded models
+        // first render the opaque models
         renderModels(ourShader, models);
 
         // render aisle without face-cull
@@ -388,6 +439,25 @@ int main() {
             glBindVertexArray(0);
         }
 
+        // Blending
+        blendingShader.use();
+        blendingShader.setMat4("projection", projection);
+        blendingShader.setMat4("view", view);
+
+        glBindVertexArray(transparentVAO);
+        glBindTexture(GL_TEXTURE_2D, transparentTexture);
+                                       // render from furthest to nearest
+        for (std::map<float, glm::vec3>::reverse_iterator it = sorted.rbegin(); it != sorted.rend(); ++it)
+        {
+            model = glm::mat4(1.0f);
+            model = glm::translate(model, it->second);
+            model = glm::scale(model, glm::vec3(programState->windowScale));
+            blendingShader.setMat4("model", model);
+            glDrawArrays(GL_TRIANGLES, 0, 6);
+        }
+
+    // -----------------------------------------
+
         if (programState->ImGuiEnabled)
             DrawImGui(programState);
 
@@ -404,6 +474,9 @@ int main() {
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
     // glfw: terminate, clearing all previously allocated GLFW resources.
+//    glDeleteVertexArrays(1, &transparentVAO);
+//    glDeleteBuffers(1, &transparentVBO);
+    // nmg da oslobodim za instancing (nije ni na learnOpenGl)
     // ------------------------------------------------------------------
     glfwTerminate();
     return 0;
@@ -570,6 +643,45 @@ void key_callback(GLFWwindow *window, int key, int scancode, int action, int mod
             glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
         }
     }
+}
+
+// utility function for loading a 2D texture from file
+// ---------------------------------------------------
+unsigned int loadTexture(char const * path)
+{
+    unsigned int textureID;
+    glGenTextures(1, &textureID);
+
+    int width, height, nrComponents;
+    unsigned char *data = stbi_load(path, &width, &height, &nrComponents, 0);
+    if (data)
+    {
+        GLenum format;
+        if (nrComponents == 1)
+            format = GL_RED;
+        else if (nrComponents == 3)
+            format = GL_RGB;
+        else if (nrComponents == 4)
+            format = GL_RGBA;
+
+        glBindTexture(GL_TEXTURE_2D, textureID);
+        glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+        glGenerateMipmap(GL_TEXTURE_2D);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT); // for this tutorial: use GL_CLAMP_TO_EDGE to prevent semi-transparent borders. Due to interpolation it takes texels from next repeat
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, format == GL_RGBA ? GL_CLAMP_TO_EDGE : GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        stbi_image_free(data);
+    }
+    else
+    {
+        std::cout << "Texture failed to load at path: " << path << std::endl;
+        stbi_image_free(data);
+    }
+
+    return textureID;
 }
 // ----------------------------------------------------------------------
 
