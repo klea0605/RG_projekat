@@ -114,6 +114,14 @@ struct ProgramState {
     ProgramState()
             : camera(glm::vec3(0.0f, 0.0f, 3.0f)) {}
 
+    // Multiple light sources
+    glm::vec3 pointLightPositions[4] = {
+            glm::vec3(cartPosition.x, 4.0f, cartPosition.z),
+            glm::vec3(3.0f, 5.0f, 4.0f),
+            glm::vec3(-7.0f, 4.0f, 3.8f),
+            glm::vec3(-7.0f, 3.0f, camera.Position.z - 0.5f)
+    };
+
     void SaveToFile(std::string filename);
 
     void LoadFromFile(std::string filename);
@@ -389,8 +397,11 @@ int main() {
         // don't forget to enable shader before setting uniforms
         ourShader.use();
 
-        pointLight.position = glm::vec3(programState->camera.Position.x - 0.02f, 0.0f, 5.0f);
-        ourShader.setVec3("pointLight.position", pointLight.position);
+        // Lights
+        ourShader.setVec3("pointLight[0].position", programState->pointLightPositions[0]);
+        ourShader.setVec3("pointLight[1].position", programState->pointLightPositions[1]);
+        ourShader.setVec3("pointLight[2].position", programState->pointLightPositions[2]);
+        ourShader.setVec3("pointLight[3].position", programState->pointLightPositions[3]);
         ourShader.setVec3("pointLight.ambient", pointLight.ambient);
         ourShader.setVec3("pointLight.diffuse", pointLight.diffuse);
         ourShader.setVec3("pointLight.specular", pointLight.specular);
@@ -399,6 +410,7 @@ int main() {
         ourShader.setFloat("pointLight.quadratic", pointLight.quadratic);
         ourShader.setVec3("viewPosition", programState->camera.Position);
         ourShader.setFloat("material.shininess", 32.0f);
+
         ourShader.setInt("blinn_flag", blinn_flag);
         std::cout << (blinn_flag ? "Blinn-Phong" : "Phong") << std::endl;
 
