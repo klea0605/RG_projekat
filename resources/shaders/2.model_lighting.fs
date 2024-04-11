@@ -25,6 +25,10 @@ in vec2 TexCoords;
 in vec3 Normal;
 in vec3 FragPos;
 
+// NOT WORKING
+// #define NUM_LIGHTS (4)
+//
+// uniform PointLight pointLight[NUM_LIGHTS];
 uniform PointLight pointLight;
 uniform Material material;
 uniform bool blinn_flag;
@@ -79,7 +83,8 @@ void main()
     vec3 result = vec3(0.0f);
 
 //    for(int i = 0; i < NUM_LIGHTS; i++)
-     result += CalcPointLight(pointLight, normal, FragPos, viewDir);
+//      result += CalcPointLight(pointLight[i], normal, FragPos, viewDir);
+     result = CalcPointLight(pointLight, normal, FragPos, viewDir);
 
     FragColor = vec4(result, 1.0); // umesto 1.0 da bude alpha komponenta difuzne teksture
 }

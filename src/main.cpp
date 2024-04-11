@@ -625,6 +625,7 @@ void DrawImGui(ProgramState *programState) {
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
 
+        ImGui::DragFloat3("lightParams[1].position", (float*)&programState->pointLightPositions[2]);
         ImGui::DragFloat("constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
         ImGui::DragFloat("linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
         ImGui::DragFloat("quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
