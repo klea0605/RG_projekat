@@ -78,7 +78,7 @@ struct ProgramState {
     glm::vec3 laysStartPosition = glm::vec3(cartPosition.x + cartXDiameter/2, cartPosition.y - cartYDiameter/2, cartPosition.z + cartZDiameter/2);
     float laysScale = 0.025f;
     //instancing
-    unsigned int laysAmount = 4;
+    int laysAmount = 4;
     // ovo ce morati da bude niz za instancing
     float laysRotationDeg = 0.0f;
     // instancing
@@ -285,11 +285,11 @@ int main() {
         // 1. translation: displace along circle with 'radius' in range [-offset, offset]
         float angle = (float)i / (float)amount * 360.0f;
         float displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-        float x = programState->laysStartPosition.x * radius + displacement;
+        float x = programState->laysStartPosition.x * radius + displacement - 0.2f;
 //        int sign = (i % 2) ? -1 : 1;
 //        float x = programState->laysStartPosition.x + sign*i*offset;
         displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
-        float y = displacement * 0.6f; // keep height of asteroid field smaller compared to width of x and z
+        float y = displacement * 0.6f - 0.2f; // keep height of asteroid field smaller compared to width of x and z
 //        float y = programState->laysStartPosition.y;
         displacement = (rand() % (int)(2 * offset * 100)) / 100.0f - offset;
 //        float z = programState->laysStartPosition.z;
@@ -501,10 +501,12 @@ void renderModels(Shader &shader, vector<Model> &models) {
 
     // Shopping cart model
     model = glm::mat4(1.0f);
-    model = glm::translate(model,
-                           programState->cartPosition); // translate it down so it's at the center of the scene
+//    model = glm::translate(model,
+//                           programState->cartPosition); // translate it down so it's at the center of the scene
     model = glm::scale(model, glm::vec3(
             programState->cartScale));    // it's a bit too big for our scene, so scale it dow
+    model = glm::translate(model,
+                           programState->cartPosition);
     model = glm::rotate(model, glm::radians(programState->cartXRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
     model = glm::rotate(model, glm::radians(programState->cartZRotationDeg), glm::vec3(0.0f, 0.0f, 1.0f));
     shader.setMat4("model", model);
@@ -516,6 +518,8 @@ void renderModels(Shader &shader, vector<Model> &models) {
                            programState->laysStartPosition);
     model = glm::scale(model, glm::vec3(
             programState->laysScale));
+//    model = glm::translate(model,
+//                           programState->laysStartPosition); nisam pratila dobar redosled transformacija jer sam samo gledala kako scena izgleda
     model = glm::rotate(model, glm::radians(programState->laysRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
     shader.setMat4("model", model);
     models[1].Draw(shader);
@@ -525,8 +529,6 @@ void renderModels(Shader &shader, vector<Model> &models) {
     model = glm::mat4(1.0f);
     model = glm::translate(model,
                            programState->floorPosition); // translate it down so it's at the center of the scene
-//    model = glm::scale(model, glm::vec3(
-//            programState->floorScale));    // it's a bit too big for our scene, so scale it dow
     model = glm::rotate(model, glm::radians(programState->floorXRotationDeg), glm::vec3(1.0f, 0.0f, 0.0f));
     shader.setMat4("model", model);
     models[3].Draw(shader);
@@ -622,24 +624,31 @@ void DrawImGui(ProgramState *programState) {
         ImGui::Text("Choose your chips");
         ImGui::SliderFloat("Float slider", &f, 0.0, 1.0);
         ImGui::ColorEdit3("Background color", (float *) &programState->clearColor);
-//        ImGui::DragFloat3("Backpack position", (float*)&programState->backpackPosition);
-//        ImGui::DragFloat("Backpack scale", &programState->backpackScale, 0.05, 0.1, 4.0);
 
-        ImGui::DragFloat("pointLight.constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
-        ImGui::DragFloat("pointLight.quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
+        ImGui::DragFloat("constant", &programState->pointLight.constant, 0.05, 0.0, 1.0);
+        ImGui::DragFloat("linear", &programState->pointLight.linear, 0.05, 0.0, 1.0);
+        ImGui::DragFloat("quadratic", &programState->pointLight.quadratic, 0.05, 0.0, 1.0);
+
         ImGui::End();
     }
 
     {
-        ImGui::Begin("Camera info");
-        const Camera& c = programState->camera;
-        ImGui::Text("Camera position: (%f, %f, %f)", c.Position.x, c.Position.y, c.Position.z);
-        ImGui::Text("(Yaw, Pitch): (%f, %f)", c.Yaw, c.Pitch);
-        ImGui::Text("Camera front: (%f, %f, %f)", c.Front.x, c.Front.y, c.Front.z);
-        ImGui::Checkbox("Camera mouse update", &programState->CameraMouseMovementUpdateEnabled);
+        ImGui::Begin("Instancing");
+        ImGui::Text("Stay healthy");
+        ImGui::SliderInt("Chips amount", &programState->laysAmount, 0, 4);
         ImGui::End();
     }
+
+
+//    {
+//        ImGui::Begin("Camera info");
+//        const Camera& c = programState->camera;
+//        ImGui::Text("Camera position: (%f, %f, %f)", c.Position.x, c.Position.y, c.Position.z);
+//        ImGui::Text("(Yaw, Pitch): (%f, %f)", c.Yaw, c.Pitch);
+//        ImGui::Text("Camera front: (%f, %f, %f)", c.Front.x, c.Front.y, c.Front.z);
+//        ImGui::Checkbox("Camera mouse update", &programState->CameraMouseMovementUpdateEnabled);
+//        ImGui::End();
+//    }
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
