@@ -271,8 +271,8 @@ int main() {
     Shader instanceShader(FileSystem::getPath("resources/shaders/instancing.vs").c_str(), FileSystem::getPath("resources/shaders/instancing.fs").c_str());
     Shader blendingShader(FileSystem::getPath("resources/shaders/blending.vs").c_str(), FileSystem::getPath("resources/shaders/blending.fs").c_str());
 // New code - Bloom & Blurr
-    Shader hdrShader(FileSystem::getPath("resources/shaders/hdrShader.vs").c_str(), FileSystem::getPath("resources/shaders/hdrShader.fs").c_str());
     Shader blurrShader(FileSystem::getPath("resources/shaders/blurrShader.vs").c_str(), FileSystem::getPath("resources/shaders/blurrShader.fs").c_str());
+    Shader hdrShader(FileSystem::getPath("resources/shaders/hdrShader.vs").c_str(), FileSystem::getPath("resources/shaders/hdrShader.fs").c_str());
 // End of new code
 
 
@@ -363,19 +363,6 @@ int main() {
     }
 // ----------------------------------------------------------
 
-//    Lights; TODO -> vise pointLights
-// ----------------------------------------------------------
-
-    PointLight& pointLight = programState->pointLight;
-    pointLight.ambient = glm::vec3(1.0, 1.0, 1.0);
-    pointLight.diffuse = glm::vec3(1.0, 1.0, 1.0);
-    pointLight.specular = glm::vec3(5.0, 3.0, 2.0);
-
-    pointLight.constant = 1.3f;
-    pointLight.linear = 0.0f;
-    pointLight.quadratic = 0.0f;
-//--------------------------------------------------------------
-
 // Blending
 // buffer objects for window
     unsigned int transparentVAO, transparentVBO;
@@ -414,12 +401,25 @@ int main() {
         glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0 + i, GL_TEXTURE_2D, colorBuffers[i], 0);
     }
 
-
-// Check if framebuffer is complete
+    // create and attach depth buffer (renderbuffer)
+    unsigned int rboDepth;
+    glGenRenderbuffers(1, &rboDepth);
+    glBindRenderbuffer(GL_RENDERBUFFER, rboDepth);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT, SCR_WIDTH, SCR_HEIGHT);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, rboDepth);
+    // tell OpenGL which color attachments we'll use (of this framebuffer) for rendering
+    unsigned int attachments[2] = { GL_COLOR_ATTACHMENT0, GL_COLOR_ATTACHMENT1 };
+    glDrawBuffers(2, attachments);
+    // finally check if framebuffer is complete
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cout << "Framebuffer not complete!" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-glBindFramebuffer(GL_FRAMEBUFFER, 0);  // Unbind the framebuffer -- without this it wouldn't work
+//// Check if framebuffer is complete
+//    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+//        std::cout << "Framebuffer not complete!" << std::endl;
+//
+//glBindFramebuffer(GL_FRAMEBUFFER, 0);  // Unbind the framebuffer -- without this it wouldn't work
 
 // ping-pong-framebuffer for blurring -- Bloom & Blurr
     unsigned int pingpongFBO[2];
@@ -440,11 +440,24 @@ glBindFramebuffer(GL_FRAMEBUFFER, 0);  // Unbind the framebuffer -- without this
             std::cout << "Framebuffer not complete!" << std::endl;
     }
 
-    hdrShader.use();
-    hdrShader.setInt("hdrBuffer", 0);
-    hdrShader.setInt("bloomBlur", 1);
+    //    Lights; TODO -> vise pointLights
+// ----------------------------------------------------------
+
+    PointLight& pointLight = programState->pointLight;
+    pointLight.ambient = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.diffuse = glm::vec3(1.0, 1.0, 1.0);
+    pointLight.specular = glm::vec3(5.0, 3.0, 2.0);
+
+    pointLight.constant = 1.3f;
+    pointLight.linear = 0.0f;
+    pointLight.quadratic = 0.0f;
+//--------------------------------------------------------------
+
     blurrShader.use();
     blurrShader.setInt("image", 0);
+    hdrShader.use();
+    hdrShader.setInt("scene", 0);
+    hdrShader.setInt("bloomBlur", 1);
 // End of new code - Blurr & Bloom --------------------------------------------------------------------------
 
 
